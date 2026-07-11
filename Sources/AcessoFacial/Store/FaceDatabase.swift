@@ -7,9 +7,11 @@ import Combine
 final class FaceDatabase: ObservableObject {
     @Published private(set) var people: [Person] = []
     @Published private(set) var events: [AccessEvent] = []
-    @Published var matchThreshold: Double = 0.72 {
-        didSet { saveSettings() }
-    }
+    @Published var matchThreshold: Double = 0.72 { didSet { saveSettings() } }
+    /// Exige prova de vida (piscada) antes de liberar acesso.
+    @Published var requireLiveness: Bool = true { didSet { saveSettings() } }
+    /// Toca som em alertas de watchlist.
+    @Published var soundEnabled: Bool = true { didSet { saveSettings() } }
 
     private let dir: URL
     private let peopleURL: URL
@@ -78,10 +80,16 @@ final class FaceDatabase: ObservableObject {
         if let data = try? Data(contentsOf: settingsURL),
            let decoded = try? JSONDecoder().decode(Settings.self, from: data) {
             matchThreshold = decoded.matchThreshold
+            requireLiveness = decoded.requireLiveness ?? true
+            soundEnabled = decoded.soundEnabled ?? true
         }
     }
 
-    private struct Settings: Codable { var matchThreshold: Double }
+    private struct Settings: Codable {
+        var matchThreshold: Double
+        var requireLiveness: Bool?
+        var soundEnabled: Bool?
+    }
 
     private func savePeople() {
         guard let data = try? JSONEncoder().encode(people) else { return }
@@ -94,7 +102,23 @@ final class FaceDatabase: ObservableObject {
     }
 
     private func saveSettings() {
-        guard let data = try? JSONEncoder().encode(Settings(matchThreshold: matchThreshold)) else { return }
+        let s = Settings(matchThreshold: matchThreshold,
+                         requireLiveness: requireLiveness,
+                         soundEnabled: soundEnabled)
+        guard let data = try? JSONEncoder().encode(s) else { return }
         try? data.write(to: settingsURL, options: .atomic)
+    }
+
+    // MARK: Exportação
+
+    /// Gera o conteúdo CSV do log de acesso (para auditoria).
+    func eventsCSV() -> String {
+        let df = ISO8601DateFormatter()
+        var rows = ["data_hora,pessoa,resultado,confianca_pct"]
+        for e in events {
+            let name = (e.personName ?? "Desconhecido").replacingOccurrences(of: "\"", with: "'")
+            rows.append("\(df.string(from: e.timestamp)),\"\(name)\",\(e.kind.label),\(Int(e.confidence * 100))")
+        }
+        return rows.joined(separator: "\n")
     }
 }

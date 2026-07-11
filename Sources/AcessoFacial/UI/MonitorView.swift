@@ -7,7 +7,7 @@ struct MonitorView: View {
     var body: some View {
         VStack(spacing: 0) {
             ZStack(alignment: .top) {
-                CameraPreviewView(image: vm.camera.latestImage, faces: vm.faces, match: vm.lastMatch)
+                CameraPreviewView(image: vm.camera.latestImage, faces: vm.faces)
                     .overlay(alignment: .top) { bannerView }
             }
             statusBar
@@ -37,22 +37,31 @@ struct MonitorView: View {
     private func icon(for b: Banner) -> String {
         switch b {
         case .granted: return "checkmark.circle.fill"
+        case .alert: return "bell.badge.fill"
+        case .blocked: return "hand.raised.slash.fill"
         case .denied: return "xmark.octagon.fill"
         case .desconhecido: return "questionmark.circle.fill"
+        case .checkLiveness: return "eye.trianglebadge.exclamationmark"
         }
     }
     private func text(for b: Banner) -> String {
         switch b {
         case .granted(let name): return "Acesso liberado — \(name)"
+        case .alert(let name): return "Alerta — \(name) identificada"
+        case .blocked(let name): return "Acesso BLOQUEADO — \(name)"
         case .denied: return "Acesso negado"
         case .desconhecido: return "Rosto não cadastrado"
+        case .checkLiveness: return "Prova de vida: pisque para confirmar"
         }
     }
     private func color(for b: Banner) -> Color {
         switch b {
         case .granted: return Brand.accent
+        case .alert: return Brand.accent2
+        case .blocked: return Brand.red
         case .denied: return Brand.red
         case .desconhecido: return Brand.amber
+        case .checkLiveness: return Brand.amber
         }
     }
 
@@ -63,10 +72,17 @@ struct MonitorView: View {
                 .foregroundStyle(vm.camera.running ? Brand.accent : Brand.muted)
             Label("\(db.people.count) cadastrados", systemImage: "person.2.fill")
                 .foregroundStyle(.secondary)
+            if vm.faces.count > 1 {
+                Label("\(vm.faces.count) rostos", systemImage: "person.3.fill")
+                    .foregroundStyle(Brand.accent2)
+            }
             if let err = vm.camera.errorMessage {
                 Label(err, systemImage: "exclamationmark.triangle.fill").foregroundStyle(Brand.red)
             }
             Spacer()
+            if db.requireLiveness {
+                Label("Liveness", systemImage: "eye.fill").foregroundStyle(Brand.accent2)
+            }
             Text("Limiar: \(Int(db.matchThreshold * 100))%").foregroundStyle(.secondary)
         }
         .font(.callout)

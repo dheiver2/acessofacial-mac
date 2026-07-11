@@ -9,6 +9,7 @@ struct EnrollView: View {
     @State private var name = ""
     @State private var role = ""
     @State private var accessLevel: AccessLevel = .staff
+    @State private var status: PersonStatus = .normal
     @State private var samples: [FaceSample] = []
     @State private var isCapturing = false
     @State private var statusMessage: String?
@@ -26,7 +27,7 @@ struct EnrollView: View {
 
     private var captureColumn: some View {
         VStack(spacing: 14) {
-            CameraPreviewView(image: camera.latestImage, faces: [], match: nil)
+            CameraPreviewView(image: camera.latestImage, faces: [])
                 .aspectRatio(4/3, contentMode: .fit)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Brand.border, lineWidth: 1))
@@ -91,6 +92,17 @@ struct EnrollView: View {
                         Text(level.label).tag(level)
                     }
                 }
+                Picker("Situação (watchlist)", selection: $status) {
+                    ForEach(PersonStatus.allCases) { s in
+                        Label(s.label, systemImage: s.systemImage).tag(s)
+                    }
+                }
+                if status != .normal {
+                    Text(status == .bloqueada
+                         ? "Pessoa bloqueada: acesso negado e alarme ao ser detectada."
+                         : "Pessoa em alerta: acesso liberado, porém dispara notificação.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
             if let statusMessage {
                 Section {
@@ -146,9 +158,10 @@ struct EnrollView: View {
         let person = Person(name: name.trimmingCharacters(in: .whitespaces),
                             role: role.trimmingCharacters(in: .whitespaces),
                             accessLevel: accessLevel,
-                            embeddings: samples)
+                            embeddings: samples,
+                            status: status)
         db.addPerson(person)
-        name = ""; role = ""; accessLevel = .staff; samples = []
+        name = ""; role = ""; accessLevel = .staff; status = .normal; samples = []
         statusMessage = "✓ \(person.name) cadastrado(a) com sucesso."
     }
 }

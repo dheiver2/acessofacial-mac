@@ -1,12 +1,11 @@
 import SwiftUI
 import CoreGraphics
 
-/// Exibe o quadro atual da câmera com overlay das caixas de rosto detectadas
-/// e um rótulo de identificação (nome + confiança, ou "desconhecido").
+/// Exibe o quadro atual da câmera com overlay de TODOS os rostos detectados,
+/// cada um com cor e rótulo conforme a decisão (liberado/negado/bloqueado/…).
 struct CameraPreviewView: View {
     let image: CGImage?
-    let faces: [DetectedFace]
-    let match: MatchResult?
+    let faces: [FaceResult]
 
     var body: some View {
         GeometryReader { geo in
@@ -37,50 +36,49 @@ struct CameraPreviewView: View {
             let offY = (size.height - imageSize.height * scale) / 2
 
             for face in faces {
-                // Vision: bounding box normalizado, origem inferior-esquerda.
-                let bb = face.boundingBox
+                let bb = face.boundingBox   // Vision: origem inferior-esquerda
                 let rect = CGRect(
                     x: offX + bb.origin.x * imageSize.width * scale,
                     y: offY + (1 - bb.origin.y - bb.height) * imageSize.height * scale,
                     width: bb.width * imageSize.width * scale,
                     height: bb.height * imageSize.height * scale
                 )
-                let color = boxColor(for: face)
-                let path = Path(roundedRect: rect, cornerRadius: 8)
-                ctx.stroke(path, with: .color(color), lineWidth: 2.5)
+                let color = color(for: face.decision)
+                ctx.stroke(Path(roundedRect: rect, cornerRadius: 8),
+                           with: .color(color), lineWidth: face.isPrimary ? 3 : 2)
 
-                if isPrimary(face) {
-                    let label = labelText()
-                    let text = Text(label).font(.caption.weight(.semibold)).foregroundColor(.white)
-                    let resolved = ctx.resolve(text)
-                    let textSize = resolved.measure(in: CGSize(width: 300, height: 30))
-                    let bgRect = CGRect(x: rect.minX, y: max(0, rect.minY - textSize.height - 8),
-                                        width: textSize.width + 14, height: textSize.height + 6)
-                    ctx.fill(Path(roundedRect: bgRect, cornerRadius: 5), with: .color(color.opacity(0.9)))
-                    ctx.draw(resolved, at: CGPoint(x: bgRect.minX + 7, y: bgRect.midY), anchor: .leading)
-                }
+                let label = labelText(for: face)
+                let text = Text(label).font(.caption.weight(.semibold)).foregroundColor(.white)
+                let resolved = ctx.resolve(text)
+                let textSize = resolved.measure(in: CGSize(width: 320, height: 30))
+                let bgRect = CGRect(x: rect.minX, y: max(0, rect.minY - textSize.height - 8),
+                                    width: textSize.width + 14, height: textSize.height + 6)
+                ctx.fill(Path(roundedRect: bgRect, cornerRadius: 5), with: .color(color.opacity(0.92)))
+                ctx.draw(resolved, at: CGPoint(x: bgRect.minX + 7, y: bgRect.midY), anchor: .leading)
             }
         }
     }
 
-    private func isPrimary(_ face: DetectedFace) -> Bool {
-        guard let biggest = faces.max(by: { $0.boundingBox.width < $1.boundingBox.width }) else { return false }
-        return face.boundingBox == biggest.boundingBox
-    }
-
-    private func boxColor(for face: DetectedFace) -> Color {
-        guard isPrimary(face) else { return Brand.accent2.opacity(0.7) }
-        if let match, match.person != nil { return Brand.accent }
-        if let match, match.distance < 1.0 { return Brand.red }
-        return Brand.amber
-    }
-
-    private func labelText() -> String {
-        if let match, let person = match.person {
-            return "\(person.name) · \(Int(match.confidence * 100))%"
-        } else if let match {
-            return match.distance < 1.0 ? "Acesso negado" : "Desconhecido"
+    private func color(for decision: AccessDecision) -> Color {
+        switch decision {
+        case .granted: return Brand.accent
+        case .alert: return Brand.accent2
+        case .blocked: return Brand.red
+        case .checkLiveness: return Brand.amber
+        case .denied: return Brand.red
+        case .unknown: return Brand.amber
         }
-        return "Analisando…"
+    }
+
+    private func labelText(for face: FaceResult) -> String {
+        let pct = Int(face.confidence * 100)
+        switch face.decision {
+        case .granted(let p): return "\(p.name) · \(pct)%"
+        case .alert(let p): return "🔔 \(p.name) · \(pct)%"
+        case .blocked(let p): return "⛔️ \(p.name) · bloqueada"
+        case .checkLiveness: return "Pisque para confirmar…"
+        case .denied: return "Acesso negado"
+        case .unknown: return "Desconhecido"
+        }
     }
 }

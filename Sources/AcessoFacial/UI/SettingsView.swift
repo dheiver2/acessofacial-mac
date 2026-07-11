@@ -19,6 +19,23 @@ struct SettingsView: View {
                 }
             }
 
+            Section("Segurança") {
+                Toggle(isOn: $db.requireLiveness) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Exigir prova de vida (anti-spoofing)")
+                        Text("Bloqueia foto/vídeo estático: só libera após detectar piscada/movimento.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Toggle(isOn: $db.soundEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Som em alertas de watchlist")
+                        Text("Toca alarme quando uma pessoa bloqueada ou em alerta é detectada.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+
             Section("Câmera") {
                 if camera.availableDevices.isEmpty {
                     Text("Nenhuma câmera detectada.").foregroundStyle(.secondary)

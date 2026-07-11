@@ -4,16 +4,19 @@ Software nativo de reconhecimento facial para macOS — controle de acesso por c
 
 ## Funcionalidades
 
-- **Monitor**: câmera ao vivo com detecção de rosto (caixa delimitadora) e identificação em tempo real — libera (verde), nega por rosto desconhecido/não cadastrado (amarelo) ou nega por confiança baixa (vermelho).
-- **Cadastrar**: captura 1–5 amostras do rosto de uma pessoa, com nome, cargo e nível de acesso (Administrador / Colaborador / Visitante).
-- **Pessoas**: lista, ativa/desativa e remove cadastros.
-- **Registros**: log de tentativas de acesso (liberado/negado), com miniatura, horário e confiança — para auditoria.
-- **Configurações**: limiar de confiança do reconhecimento, seleção de câmera.
+- **Monitor**: câmera ao vivo com reconhecimento de **múltiplos rostos simultâneos** (cada rosto com nome e confiança). O rosto principal (mais próximo) dirige a decisão de acesso — libera (verde), nega (vermelho) ou marca desconhecido (amarelo).
+- **Anti-spoofing (prova de vida)**: exige piscada/movimento antes de liberar, bloqueando ataque com foto ou vídeo estático. Configurável.
+- **Watchlist**: cada pessoa pode ser marcada como **Normal**, **Alerta** (libera + notifica) ou **Bloqueada** (nega + alarme). Ao detectar uma pessoa em watchlist em qualquer rosto do quadro, dispara **som + notificação do sistema**.
+- **Cadastrar**: captura 1–5 amostras do rosto, com nome, cargo, nível de acesso e situação de watchlist.
+- **Pessoas**: lista, busca, ativa/desativa, altera situação (watchlist) e remove cadastros.
+- **Registros**: log de acessos (liberado/negado/bloqueado/alerta/desconhecido) com miniatura, horário e confiança. **Busca**, **filtro por resultado** e **exportação CSV** para auditoria.
+- **Configurações**: limiar de confiança, liga/desliga prova de vida e som de alertas, seleção de câmera.
 
 ## Como funciona (técnico)
 
 - **Detecção**: `VNDetectFaceLandmarksRequest` (Vision) localiza rostos e pontos faciais em cada quadro da câmera.
 - **Reconhecimento**: o rosto detectado é recortado e passado por `VNGenerateImageFeaturePrintRequest`, gerando uma assinatura (embedding) da imagem. A assinatura ao vivo é comparada por distância (`computeDistance`) contra as assinaturas cadastradas; a menor distância acima do limiar configurado libera o acesso.
+- **Prova de vida**: variação da abertura ocular (via landmarks) ao longo de uma janela curta — rosto vivo pisca/move, foto estática não. Cobre o ataque de apresentação mais comum (foto impressa / tela de celular).
 - **Persistência**: pessoas, amostras (assinaturas arquivadas via `NSSecureCoding`) e log de acesso são salvos como JSON em `~/Library/Application Support/AcessoFacial/`. Nenhum dado sai da máquina.
 
 ## Build

@@ -61,14 +61,15 @@ struct MatchResult {
 }
 
 extension FaceEmbedding {
-    /// Compara um feature print ao vivo contra todas as pessoas cadastradas
-    /// e retorna a melhor correspondência (menor distância entre as
-    /// amostras cadastradas de cada pessoa).
+    /// Encontra a pessoa cadastrada (ativa) mais próxima do feature print ao
+    /// vivo. Retorna sempre o melhor candidato com sua confiança; a decisão de
+    /// aceitar ou não fica com quem chama (aplicando o limiar). `person` só é
+    /// preenchido quando a confiança atinge o limiar.
     static func identify(_ live: VNFeaturePrintObservation,
                           against people: [Person],
                           threshold: Double) -> MatchResult {
         var best: (Person, Float)?
-        for person in people {
+        for person in people where person.active {
             for sample in person.embeddings {
                 guard let stored = unarchive(sample.data),
                       let d = distance(live, stored) else { continue }
@@ -79,9 +80,7 @@ extension FaceEmbedding {
             return MatchResult(person: nil, confidence: 0, distance: .greatestFiniteMagnitude)
         }
         let conf = confidence(fromDistance: dist)
-        if conf >= threshold {
-            return MatchResult(person: person, confidence: conf, distance: dist)
-        }
-        return MatchResult(person: nil, confidence: conf, distance: dist)
+        return MatchResult(person: conf >= threshold ? person : nil,
+                           confidence: conf, distance: dist)
     }
 }

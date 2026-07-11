@@ -32,6 +32,8 @@ struct PeopleListView: View {
                     ForEach(filtered) { person in
                         PersonRow(person: person, onToggleActive: {
                             var p = person; p.active.toggle(); db.updatePerson(p)
+                        }, onSetStatus: { s in
+                            var p = person; p.status = s; db.updatePerson(p)
                         }, onDelete: { personPendingDelete = person })
                     }
                 }
@@ -54,6 +56,7 @@ struct PeopleListView: View {
 private struct PersonRow: View {
     let person: Person
     let onToggleActive: () -> Void
+    let onSetStatus: (PersonStatus) -> Void
     let onDelete: () -> Void
 
     var body: some View {
@@ -67,13 +70,30 @@ private struct PersonRow: View {
                     .overlay(Image(systemName: "person.fill").foregroundStyle(.secondary))
             }
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(person.name).font(.headline)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(person.name).font(.headline)
+                    statusBadge
+                }
                 Text(person.role.isEmpty ? person.accessLevel.label : "\(person.role) · \(person.accessLevel.label)")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
             Text("\(person.embeddings.count) amostra(s)").font(.caption2).foregroundStyle(.secondary)
+
+            Menu {
+                ForEach(PersonStatus.allCases) { s in
+                    Button {
+                        onSetStatus(s)
+                    } label: {
+                        Label(s.label, systemImage: person.status == s ? "checkmark" : s.systemImage)
+                    }
+                }
+            } label: {
+                Image(systemName: "person.badge.shield.checkmark")
+            }
+            .menuStyle(.borderlessButton)
+            .frame(width: 40)
 
             Toggle("Ativo", isOn: Binding(get: { person.active }, set: { _ in onToggleActive() }))
                 .toggleStyle(.switch).labelsHidden()
@@ -85,5 +105,24 @@ private struct PersonRow: View {
         }
         .padding(.vertical, 4)
         .opacity(person.active ? 1 : 0.45)
+    }
+
+    @ViewBuilder
+    private var statusBadge: some View {
+        switch person.status {
+        case .normal: EmptyView()
+        case .alerta:
+            Label("Alerta", systemImage: "bell.badge.fill")
+                .font(.caption2.weight(.semibold)).foregroundStyle(Brand.accent2)
+                .labelStyle(.titleAndIcon)
+                .padding(.horizontal, 6).padding(.vertical, 2)
+                .background(Brand.accent2.opacity(0.15), in: Capsule())
+        case .bloqueada:
+            Label("Bloqueada", systemImage: "hand.raised.slash.fill")
+                .font(.caption2.weight(.semibold)).foregroundStyle(Brand.red)
+                .labelStyle(.titleAndIcon)
+                .padding(.horizontal, 6).padding(.vertical, 2)
+                .background(Brand.red.opacity(0.15), in: Capsule())
+        }
     }
 }

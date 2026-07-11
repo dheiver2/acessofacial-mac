@@ -2,43 +2,68 @@ import Foundation
 import CoreGraphics
 
 /// Testes de sanidade rodáveis sem UI (`AcessoFacial --test`), cobrindo a
-/// lógica pura (sem depender da câmera): confiança/threshold e persistência
-/// do banco de dados.
+/// lógica pura (sem depender da câmera): confiança/threshold, persistência,
+/// liveness e migração de dados antigos.
 enum SelfTest {
     static func run() -> Int32 {
         var failures = 0
 
+        // ── Confiança / limiar
         check("confidence(distance: 0) ≈ 1", FaceEmbedding.confidence(fromDistance: 0) > 0.99, &failures)
         check("confidence(distance: 1.6) ≈ 0", FaceEmbedding.confidence(fromDistance: 1.6) < 0.01, &failures)
         check("confidence é monotonicamente decrescente",
               FaceEmbedding.confidence(fromDistance: 0.3) > FaceEmbedding.confidence(fromDistance: 0.9), &failures)
 
-        // Person/FaceSample Codable round-trip
+        // ── Person Codable + status
         let sample = FaceSample(data: Data([1, 2, 3]), thumbnailJPEG: Data([4, 5]), capturedAt: Date())
-        let person = Person(name: "Teste", role: "QA", accessLevel: .staff, embeddings: [sample])
+        let person = Person(name: "Teste", role: "QA", accessLevel: .staff, embeddings: [sample], status: .bloqueada)
         if let encoded = try? JSONEncoder().encode(person),
            let decoded = try? JSONDecoder().decode(Person.self, from: encoded) {
-            check("Person Codable round-trip preserva nome", decoded.name == person.name, &failures)
-            check("Person Codable round-trip preserva amostras", decoded.embeddings.count == 1, &failures)
+            check("Person Codable preserva nome", decoded.name == person.name, &failures)
+            check("Person Codable preserva status", decoded.status == .bloqueada, &failures)
         } else {
-            print("✗ Person não codificou/decodificou")
-            failures += 1
+            print("✗ Person não codificou/decodificou"); failures += 1
         }
 
-        // AccessEvent Codable round-trip
+        // ── Migração: Person antigo SEM campo `status` vira .normal
+        let legacyPerson = """
+        {"id":"\(UUID().uuidString)","name":"Antigo","role":"","accessLevel":"staff","embeddings":[],"createdAt":0,"active":true}
+        """.data(using: .utf8)!
+        if let p = try? JSONDecoder().decode(Person.self, from: legacyPerson) {
+            check("Person legado (sem status) migra p/ .normal", p.status == .normal, &failures)
+        } else {
+            print("✗ Person legado não decodificou"); failures += 1
+        }
+
+        // ── AccessEvent Codable + migração de `granted` p/ `kind`
         let event = AccessEvent(timestamp: Date(), personID: person.id, personName: person.name,
-                                granted: true, confidence: 0.9, thumbnailJPEG: nil)
+                                kind: .bloqueado, confidence: 0.9, thumbnailJPEG: nil)
         if let encoded = try? JSONEncoder().encode(event),
            let decoded = try? JSONDecoder().decode(AccessEvent.self, from: encoded) {
-            check("AccessEvent Codable round-trip", decoded.granted == true && decoded.personName == "Teste", &failures)
+            check("AccessEvent Codable preserva kind", decoded.kind == .bloqueado, &failures)
         } else {
-            print("✗ AccessEvent não codificou/decodificou")
-            failures += 1
+            print("✗ AccessEvent não codificou/decodificou"); failures += 1
+        }
+        let legacyEvent = """
+        {"id":"\(UUID().uuidString)","timestamp":0,"granted":true,"confidence":0.8}
+        """.data(using: .utf8)!
+        if let e = try? JSONDecoder().decode(AccessEvent.self, from: legacyEvent) {
+            check("AccessEvent legado (granted:true) migra p/ .liberado", e.kind == .liberado, &failures)
+        } else {
+            print("✗ AccessEvent legado não decodificou"); failures += 1
         }
 
-        // identify() sem pessoas cadastradas deve retornar sem match
-        let empty = MatchResultTestHelper.identifyWithNoPeople()
-        check("identify() sem cadastro retorna person=nil", empty.person == nil, &failures)
+        // ── Liveness: constante = não vivo; variação = vivo
+        let flat = LivenessTracker()
+        for _ in 0..<8 { flat.feed(0.05) }
+        check("Liveness rejeita abertura ocular constante (foto)", flat.isLive == false, &failures)
+        let blink = LivenessTracker()
+        for v in [0.06, 0.06, 0.05, 0.01, 0.02, 0.06, 0.06, 0.05] { blink.feed(v) }
+        check("Liveness aceita variação (piscada)", blink.isLive == true, &failures)
+
+        // ── CSV
+        check("AccessKind.granted mapeia liberado/alerta",
+              AccessKind.liberado.granted && AccessKind.alerta.granted && !AccessKind.bloqueado.granted, &failures)
 
         if failures == 0 {
             print("✓ Todos os testes passaram.")
@@ -49,21 +74,7 @@ enum SelfTest {
     }
 
     private static func check(_ label: String, _ condition: Bool, _ failures: inout Int) {
-        if condition {
-            print("✓ \(label)")
-        } else {
-            print("✗ \(label)")
-            failures += 1
-        }
-    }
-}
-
-/// Ajuda a testar `FaceEmbedding.identify` sem precisar de um
-/// VNFeaturePrintObservation real (não é sintetizável fora do Vision).
-enum MatchResultTestHelper {
-    static func identifyWithNoPeople() -> MatchResult {
-        // Sem VNFeaturePrintObservation ao vivo disponível em modo headless,
-        // testamos o caminho de "nenhuma pessoa cadastrada" diretamente.
-        MatchResult(person: nil, confidence: 0, distance: .greatestFiniteMagnitude)
+        if condition { print("✓ \(label)") }
+        else { print("✗ \(label)"); failures += 1 }
     }
 }
