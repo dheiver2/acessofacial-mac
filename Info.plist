@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key><string>Acesso Facial</string>
+    <key>CFBundleDisplayName</key><string>Acesso Facial</string>
+    <key>CFBundleIdentifier</key><string>br.com.dheiver.acessofacial.native</string>
+    <key>CFBundleVersion</key><string>1.0.0</string>
+    <key>CFBundleShortVersionString</key><string>1.0.0</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleExecutable</key><string>AcessoFacial</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
+    <key>LSMinimumSystemVersion</key><string>14.0</string>
+    <key>NSHighResolutionCapable</key><true/>
+    <key>NSCameraUsageDescription</key><string>O Acesso Facial usa a câmera para detectar e reconhecer rostos cadastrados, liberando ou negando acesso. Nenhuma imagem é enviada para servidores — tudo roda localmente.</string>
+    <key>NSPrincipalClass</key><string>NSApplication</string>
+    <key>LSApplicationCategoryType</key><string>public.app-category.security</string>
+</dict>
+</plist>
