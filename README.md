@@ -1,41 +1,43 @@
-# Acesso Facial
+# Acesso Facial (Facial Access)
 
-Software nativo de reconhecimento facial para macOS — controle de acesso por câmera, 100% local, sem dependências externas (Python, CoreML de terceiros, nuvem). Escrito em Swift/SwiftUI, usando apenas frameworks do sistema (AVFoundation + Vision).
+![Acesso Facial demo](docs/demo.gif)
 
-## Funcionalidades
+Native facial-recognition software for macOS — camera-based access control, 100% local, with no external dependencies (Python, third-party CoreML, cloud). Written in Swift/SwiftUI, using only system frameworks (AVFoundation + Vision).
 
-- **Monitor**: câmera ao vivo com reconhecimento de **múltiplos rostos simultâneos** (cada rosto com nome e confiança). O rosto principal (mais próximo) dirige a decisão de acesso — libera (verde), nega (vermelho) ou marca desconhecido (amarelo).
-- **Anti-spoofing (prova de vida)**: exige piscada/movimento antes de liberar, bloqueando ataque com foto ou vídeo estático. Configurável.
-- **Watchlist**: cada pessoa pode ser marcada como **Normal**, **Alerta** (libera + notifica) ou **Bloqueada** (nega + alarme). Ao detectar uma pessoa em watchlist em qualquer rosto do quadro, dispara **som + notificação do sistema**.
-- **Cadastrar**: captura 1–5 amostras do rosto, com nome, cargo, nível de acesso e situação de watchlist.
-- **Pessoas**: lista, busca, ativa/desativa, altera situação (watchlist) e remove cadastros.
-- **Registros**: log de acessos (liberado/negado/bloqueado/alerta/desconhecido) com miniatura, horário e confiança. **Busca**, **filtro por resultado** e **exportação CSV** para auditoria.
-- **Configurações**: limiar de confiança, liga/desliga prova de vida e som de alertas, seleção de câmera.
+## Features
 
-## Como funciona (técnico)
+- **Monitor**: live camera feed with recognition of **multiple simultaneous faces** (each face shown with name and confidence). The primary face (closest to the camera) drives the access decision — grants (green), denies (red), or flags unknown (yellow).
+- **Anti-spoofing (liveness check)**: requires a blink/movement before granting access, blocking attacks with a photo or static video. Configurable.
+- **Watchlist**: each person can be marked **Normal**, **Alert** (grants + notifies) or **Blocked** (denies + alarm). Detecting a watchlisted person on any face in frame triggers a **sound + system notification**.
+- **Enroll**: captures 1–5 face samples, with name, role, access level, and watchlist status.
+- **People**: list, search, enable/disable, change status (watchlist), and remove entries.
+- **Logs**: access log (granted/denied/blocked/alert/unknown) with thumbnail, timestamp, and confidence. **Search**, **filter by result**, and **CSV export** for auditing.
+- **Settings**: confidence threshold, liveness check and alert sound toggles, camera selection.
 
-- **Detecção**: `VNDetectFaceLandmarksRequest` (Vision) localiza rostos e pontos faciais em cada quadro da câmera.
-- **Reconhecimento**: o rosto detectado é recortado e passado por `VNGenerateImageFeaturePrintRequest`, gerando uma assinatura (embedding) da imagem. A assinatura ao vivo é comparada por distância (`computeDistance`) contra as assinaturas cadastradas; a menor distância acima do limiar configurado libera o acesso.
-- **Prova de vida**: variação da abertura ocular (via landmarks) ao longo de uma janela curta — rosto vivo pisca/move, foto estática não. Cobre o ataque de apresentação mais comum (foto impressa / tela de celular).
-- **Persistência**: pessoas, amostras (assinaturas arquivadas via `NSSecureCoding`) e log de acesso são salvos como JSON em `~/Library/Application Support/AcessoFacial/`. Nenhum dado sai da máquina.
+## How it works (technical)
+
+- **Detection**: `VNDetectFaceLandmarksRequest` (Vision) locates faces and facial landmarks in each camera frame.
+- **Recognition**: the detected face is cropped and passed through `VNGenerateImageFeaturePrintRequest`, producing an image signature (embedding). The live signature is compared by distance (`computeDistance`) against enrolled signatures; the smallest distance above the configured threshold grants access.
+- **Liveness check**: variation in eye openness (via landmarks) over a short window — a live face blinks/moves, a static photo doesn't. Covers the most common presentation attack (printed photo / phone screen).
+- **Persistence**: people, samples (signatures archived via `NSSecureCoding`), and the access log are saved as JSON under `~/Library/Application Support/AcessoFacial/`. No data leaves the machine.
 
 ## Build
 
-Requer apenas as Command Line Tools (não precisa do Xcode completo):
+Only requires the Command Line Tools (no full Xcode needed):
 
 ```bash
-bash build_app.sh              # gera "~/Desktop/Acesso Facial.app" (release)
-bash build_app.sh --debug      # build de debug
+bash build_app.sh              # produces "~/Desktop/Acesso Facial.app" (release)
+bash build_app.sh --debug      # debug build
 ```
 
-Primeira execução: clique direito → Abrir (app assinado ad-hoc, não notarizado).
+First run: right-click → Open (ad-hoc signed app, not notarized).
 
-## Testes
+## Tests
 
 ```bash
-bash run_tests.sh              # testes de sanidade headless (sem câmera)
+bash run_tests.sh              # headless sanity tests (no camera)
 ```
 
-## Privacidade
+## Privacy
 
-Todo o processamento (detecção, reconhecimento, armazenamento) roda localmente no Mac. Nenhuma imagem, rosto ou dado biométrico é enviado para servidores externos.
+All processing (detection, recognition, storage) runs locally on the Mac. No image, face, or biometric data is ever sent to external servers.
